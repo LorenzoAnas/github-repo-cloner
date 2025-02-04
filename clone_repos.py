@@ -40,6 +40,45 @@ def clone_or_update_repo(repo_url, repo_name):
         print(f"Cloning {repo_name}...")
         subprocess.run(["git", "clone", repo_url, repo_path], check=True)
 
+def interactive_menu(repos):
+    """Presents the user with a terminal UI to choose repositories to update/download."""
+    while True:
+        print("\nSelect an option:")
+        print("1. Download/Update ALL repositories")
+        print("2. Download/Update a specific repository")
+        print("3. Quit")
+        choice = input("Enter your selection: ").strip()
+
+        if choice == "1":
+            for repo in repos:
+                clone_or_update_repo(repo["clone_url"], repo["name"])
+            print("All repositories processed.")
+        elif choice == "2":
+            print("\nAvailable repositories:")
+            for index, repo in enumerate(repos):
+                print(f"[{index}] {repo['name']}")
+            selection = input("Enter the repository number or name (exact): ").strip()
+            repo = None
+            if selection.isdigit():
+                idx = int(selection)
+                if 0 <= idx < len(repos):
+                    repo = repos[idx]
+            else:
+                # match repository by name
+                for r in repos:
+                    if r["name"] == selection:
+                        repo = r
+                        break
+            if repo:
+                clone_or_update_repo(repo["clone_url"], repo["name"])
+            else:
+                print("Invalid repository selection.")
+        elif choice == "3":
+            print("Exiting menu.")
+            break
+        else:
+            print("Invalid option. Please try again.")
+
 def main():
     os.makedirs(DESTINATION_DIR, exist_ok=True)
 
@@ -47,7 +86,6 @@ def main():
     verify_token()
 
     print("Fetching repositories...")
-    # Authenticated request to fetch all repositories, including private ones
     response = requests.get(GITHUB_API_URL, auth=(USERNAME, TOKEN))
     if response.status_code != 200:
         print(f"Failed to fetch repositories: {response.status_code}")
@@ -55,12 +93,12 @@ def main():
         return
 
     repos = response.json()
-    for repo in repos:
-        repo_name = repo["name"]
-        repo_url = repo["clone_url"]
-        clone_or_update_repo(repo_url, repo_name)
+    # Check if any repositories were returned
+    if not repos:
+        print("No repositories found for the user.")
+        return
 
-    print("All repositories are up to date.")
-
+    interactive_menu(repos)
+    
 if __name__ == "__main__":
     main()
